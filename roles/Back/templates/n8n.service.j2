@@ -1,0 +1,28 @@
+[Unit]
+Description=n8n - Workflow Automation Tool
+Documentation=https://docs.n8n.io
+After=network.target
+
+[Service]
+Type=simple
+User=n8n
+Group=n8n
+EnvironmentFile=/home/n8n/.npm-global/environment
+Environment=PATH=/home/n8n/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+ExecStart=/home/n8n/.npm-global/bin/n8n start
+WorkingDirectory=/home/n8n
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+#ProtectHome=yes
+ReadWritePaths=/home/n8n/.npm-global
+
+[Install]
+WantedBy=multi-user.target

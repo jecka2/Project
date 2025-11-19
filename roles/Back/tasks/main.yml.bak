@@ -1,0 +1,50 @@
+---
+- name: Install dependencies
+  apt:
+    name:
+     - curl
+     - gnupg
+     - build-essential
+     - python3-pip
+    state: present
+
+- name: Install Node.js from Ubuntu repository
+  apt:
+    name:
+     - nodejs
+     - npm
+    state: present
+  when: ansible_distribution == 'Ubuntu'
+
+
+- name: Create n8n user
+  user:
+   name: n8n
+   system: yes
+   home: /home/n8n
+   create_home: yes
+   shell: /bin/bash
+
+- name: Install n8n globally
+  npm:
+   name: n8n
+   global: yes
+  
+
+- name: Create iptables rules template
+  template:
+    src: iptables-rules.j2
+    dest: /etc/iptables/rules.v4
+    mode: 0644
+  notify: "save iptables"
+
+- name: Create n8n systemd service
+  template:
+   src: n8n.service.j2
+   dest: /etc/systemd/system/n8n.service
+   mode: 0644
+  notify:
+    - Reload systemd
+    - Start n8n service
+
+    

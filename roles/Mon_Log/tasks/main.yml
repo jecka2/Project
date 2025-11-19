@@ -1,0 +1,89 @@
+   - name: Update apt package cache
+     ansible.builtin.apt:
+       update_cache: true
+
+   - name: Install prometheus
+     ansible.builtin.apt:
+       name: prometheus
+       state: present
+
+   - name: Copy prometheus configs
+     ansible.builtin.template:
+      src: prometheus.yml.j2
+      dest: /etc/prometheus/prometheus.yml
+      owner: prometheus
+      group: prometheus
+      mode: '0600'
+     notify: restart prometheus
+
+ #  - name: Add an Apt signing key to a specific keyring file
+ #    ansible.builtin.apt_key:
+ #      url: https://apt.grafana.com/gpg.key
+ #      keyring: /etc/apt/keyrings/grafana.gpg 
+
+
+ #  - name: add repo grafana | apt source
+ #    ansible.builtin.apt_repository:
+ #      repo: "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+ #      state: present
+ #      filename: grafana
+
+ #  - name: Update apt package cache
+ #    ansible.builtin.apt:
+ #      update_cache: true
+
+ #  - name: Install grafana
+ #    ansible.builtin.apt:
+ #      name: grafana
+ #      state: present
+
+   - name: Copy grafana-servers
+     ansible.builtin.copy:
+      src: grafana.deb
+      dest: /tmp/grafana.deb
+      owner: ansible
+      group: ansible
+      mode: '0600'
+
+   - name: Install grafana-servers
+     apt:
+      deb: /tmp/grafana.deb
+
+   - name: "ensure grafana service started"
+     ansible.builtin.service:
+       name: grafana-server
+       state: started
+
+   - name: Change admin password via API
+     uri:
+        url: http://localhost:3000/api/admin/users/1/password
+        method: PUT
+        body:
+          oldPassword: "{{ grafana_admin_password }}"
+          newPassword: "{{ grafana_password }}"
+          confirmNew: "{{ grafana_password }}"
+        body_format: json
+        status_code: 200
+        headers:
+          Content-Type: "application/json"
+     register: password_change
+     retries: 3
+     delay: 5    
+
+   - name: "add datasource"
+     community.grafana.grafana_datasource:
+       grafana_url: http://localhost:3000
+       grafana_user: "{{ grafana_user }}"
+       grafana_password: "{{ grafana_password }}"
+       name: prometheus
+       ds_type: prometheus
+       ds_url: http://localhost:9090
+       tls_skip_verify: true
+
+   - name: Import Grafana dashboard Node Exporter
+     community.grafana.grafana_dashboard:
+       grafana_url: http://localhost:3000
+       grafana_user: "{{ grafana_user }}"
+       grafana_password: "{{ grafana_password }}"
+       dashboard_id: 1860
+       dashboard_revision: 42

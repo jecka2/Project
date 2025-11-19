@@ -1,0 +1,17 @@
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Start n8n service
+  systemd:
+    name: n8n
+    state: started
+    enabled: yes
+
+- name: Restart n8n service
+  systemd:
+   name: n8n
+   state: restarted
+
+- name: Apply iptables rules
+  command: iptables-restore /etc/iptables/rules.v4
