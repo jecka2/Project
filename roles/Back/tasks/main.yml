@@ -14,6 +14,10 @@
      - prometheus-node-exporter
     state: present
 
+- name: Sleep for 50 seconds and continue with play
+  ansible.builtin.wait_for:
+   timeout: 10
+
 - name: Add NodeSource PPA
   shell: |
     curl -sL https://deb.nodesource.com/setup_20.x | sudo bash -
@@ -84,7 +88,7 @@
    owner: n8n
    group: n8n
    mode: 0600
-  notify: restart prometheus
+  notify: Restart n8n service
 
 - name: Create n8n systemd service
   template:

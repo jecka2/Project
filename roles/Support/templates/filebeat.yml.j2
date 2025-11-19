@@ -1,0 +1,9 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/*.log
+  ignore_older: 7d
+
+output.logstash:
+  hosts: ["{{Mon_Log_ip}}:5044"]
