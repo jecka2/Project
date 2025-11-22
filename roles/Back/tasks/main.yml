@@ -14,15 +14,26 @@
      - prometheus-node-exporter
     state: present
 
-- name: Sleep for 50 seconds and continue with play
-  ansible.builtin.wait_for:
-   timeout: 10
+#- name: Sleep for 50 seconds and continue with play
+#  ansible.builtin.wait_for:
+#   timeout: 10
 
 - name: Add NodeSource PPA
+  retries: 3
+  delay: 10
   shell: |
     curl -sL https://deb.nodesource.com/setup_20.x | sudo bash -
   args:
     executable: /bin/bash
+
+
+#- name: 
+#  ansible.builtin.apt_repository:
+#    repo: "deb https://deb.nodesource.com/node_20.x {{ ansible_distribution_release }} main"
+#   state: present
+#    update_cache: yes
+#    filename: nodejs # Optional: specify a custom filename for the .list file
+
 
 - name: Install Node.js and npm
   apt:
@@ -85,8 +96,8 @@
   template:
    src: n8n-enviroment.j2
    dest: /home/n8n/.npm-global/environment
-   owner: n8n
-   group: n8n
+   owner: "{{ n8n_user }}"
+   group: "{{ n8n_user }}"
    mode: 0600
   notify: Restart n8n service
 

@@ -4,8 +4,11 @@
 
 - name: Install prometheus
   ansible.builtin.apt:
-   name: prometheus
+   name: "{{item}}"
    state: present
+  loop:
+   - prometheus-alertmanager
+   - prometheus
 
 - name: Copy prometheus configs
   ansible.builtin.template:
@@ -28,31 +31,47 @@
   apt:
      deb: /tmp/grafana.deb
 
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: grafana.ini.j2
+   dest: /etc/grafana/grafana.ini
+   owner: grafana
+   group: grafana
+   mode: '0600'
+
+
 - name: "ensure grafana service started"
   ansible.builtin.service:
     name: grafana-server
-    state: started
+    state: restarted
 
-#- name: Change admin password via API
-#  community.grafana.grafana_user:
-#     url: "http://localhost:3000/"
-#     url_username: admin
-#     url_password: "{{grafana_password}}"
-#     name: "jecka"
-#     email: "jecka@iaccept.ru"
-#     login: admin
-#     password: "{{grafana_password}}"
-#     state: present
-         
+
+
+#- name: Test Grafana connectivity
+#  uri:
+#    url: "http://localhost:3000/api/datasources"
+ #   method: GET
+ #   user: "{{ grafana_user }}"
+ #   password: "{{ grafana_password }}"
+ #   force_basic_auth: yes
+ #   status_code: 200
+ #   timeout: 5
+ # register: grafana_test
+ # ignore_errors: yes
+
+#- name: Display test result
+#  debug:
+#    var: grafana_test   
 
 #- name: "add datasource"
 #  community.grafana.grafana_datasource:
-#     grafana_url: http://localhost:3000
+#     grafana_url: "http://localhost:3000/"
 #     grafana_user: "{{ grafana_user }}"
 #     grafana_password: "{{ grafana_password }}"
 #     name: prometheus
 #     ds_type: prometheus
-#     ds_url: http://localhost:9090
+#     ds_url: "http://localhost:9090/"
+#     is_default: true
 #     tls_skip_verify: true
 
 #- name: Import Grafana dashboard Node Exporter
@@ -62,6 +81,58 @@
 #    grafana_password: "{{ grafana_password }}"
 #    dashboard_id: 1860
 #    dashboard_revision: 42
+
+- name: "ensure grafana service started"
+  ansible.builtin.service:
+    name: grafana-server
+    state: restarted
+   
+#- name: Wait for Grafana to be ready
+#  uri:
+#   url: "http://localhost:3000/api/health"
+#   method: GET
+#   status_code: 200
+#  register: grafana_health
+ # retries: 10
+ # delay: 5
+#  until: grafana_health.status == 200
+
+#- name: Import Alertmanager dashboard
+#  uri:
+#    url: "http://localhost:3000/api/dashboards/import"
+#    method: POST
+#    body: "{{ lookup('file', 'files/alertmanager-dashboard.json') | to_json }}"
+ #   body_format: json
+#    status_code: 200
+#    headers:
+#        Content-Type: "application/json"
+#    user: "{{ grafana_user }}"
+#    password: "{{ grafana_password }}"
+#  when: grafana_health.status == 200
+
+- name: Create alert rules directory
+  file:
+   path: /etc/prometheus/alerts
+   state: directory
+   owner: prometheus
+   group: prometheus
+   mode: '0755'
+
+- name: Copy alert rules
+  copy:
+   src: "files/alert-rules.yml"
+   dest: /etc/prometheus/alerts/
+   owner: prometheus
+   group: prometheus
+   mode: '0644'
+  notify: restart prometheus
+
+- name: Display access information
+  debug:
+    msg:
+     - "Grafana: http://{{ ansible_host }}:3000 (admin/{{ grafana_password }})"
+     - "Prometheus: http://{{ ansible_host }}:9090"
+     - "Alertmanager: http://{{ ansible_host }}:9093"
 
 - name: Copy deb files
   ansible.builtin.copy:

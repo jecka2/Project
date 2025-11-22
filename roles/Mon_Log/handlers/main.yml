@@ -2,3 +2,13 @@
   ansible.builtin.systemd:
     name: prometheus
     state: restarted
+
+- name: restart alertmanager
+  systemd:
+    name: alertmanager
+    state: restarted
+
+- name: restart grafana
+  systemd:
+    name: grafana-server
+    state: restarted   
