@@ -1,0 +1,29 @@
+apiVersion: 1
+ 
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: direct
+    # Access mode - proxy (server in the UI) or direct (browser in the UI).
+    url: http://localhost:9090
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      cacheLevel: 'High'
+      disableRecordingRules: false
+      incrementalQueryOverlapWindow: 10m
+
+
+   - name: Alertmanager
+    type: Alertmanager
+    access: direct
+    # Access mode - proxy (server in the UI) or direct (browser in the UI).
+    url: http://localhost:9090
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Alertmanager
+      cacheLevel: 'High'
+      disableRecordingRules: false
+      incrementalQueryOverlapWindow: 10m      

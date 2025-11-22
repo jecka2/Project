@@ -39,11 +39,22 @@
    group: grafana
    mode: '0600'
 
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: prometheus_grafana.yml.j2
+   dest: /etc/grafana/provisioning/datasources/prometheus.yml
+   owner: grafana
+   group: grafana
+   mode: '0600'
+
+
 
 - name: "ensure grafana service started"
   ansible.builtin.service:
     name: grafana-server
     state: restarted
+    enabled: true
+
 
 
 
@@ -126,6 +137,15 @@
    group: prometheus
    mode: '0644'
   notify: restart prometheus
+
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: alertmanager.yml.j2
+   dest: /etc/prometheus/alertmanager.yml
+   owner: prometheus
+   group: prometheus
+   mode: '0644'
+
 
 - name: Display access information
   debug:

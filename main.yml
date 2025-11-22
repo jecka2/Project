@@ -1,11 +1,11 @@
-#- name: Развертывние виртуальных машин
-#  hosts: Proxmox
-#  vars_files:
-#   - group_vars/hosts.yml
-#   - group_vars/secrets.yml
-#  become: true
-#  roles:
-#   - Virtualization
+- name: Развертывние виртуальных машин
+  hosts: Proxmox
+  vars_files:
+   - group_vars/hosts.yml
+   - group_vars/secrets.yml
+  become: true
+  roles:
+   - Virtualization
 
 #- name: Установка front
 #  hosts: Front
