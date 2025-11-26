@@ -1,0 +1,106 @@
+---
+- name: Install python
+  ansible.builtin.apt:
+    name:
+    - python3-pip
+    - python3-setuptools
+    - python3-requests
+    - python3-proxmoxer
+    state: present
+
+- name: clone KVM VM 1 from template
+  community.general.proxmox_kvm:
+    node: "{{item.node}}"  # Узел кластера (можно указать all)
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user }}"
+    api_token_id: "{{ proxmox_token }}"
+    api_token_secret: "{{ proxmox_token_secret }}"
+    state: present
+    validate_certs: false
+#    vmid: "{{item.clone}}"
+    clone: "{{item.clone}}"
+    name: "{{ item.name }}"
+    storage: "{{item.storage}}"
+    timeout: 300
+    #target: "{{item.node}}"
+  loop: "{{ vms_to_create }}"
+  async: 600  # Максимальное время выполнения задачи в секундах
+  poll: 0     # Не ждать завершения - запустить асинхронно
+  register: vm_clone_async_result
+  when: (ansible_hostname == "pve")
+
+- name: Wait for all VM clones to complete
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ vm_clone_async_result.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  register: vm_clone_result
+  until: vm_clone_result.finished
+  retries: 300  # 300 * 2 секунды = 10 минут максимум
+  delay: 2
+  when: item.ansible_job_id is defined
+  when: (ansible_hostname == "pve") 
+
+#- name: Check for clone failures
+#  ansible.builtin.fail:
+#   msg: "VM clone failed for {{ item.item.name }}: {{ item.msg }}"
+#  loop: "{{ vm_clone_result.results }}"
+#  when: item.failed
+#  when: (ansible_hostname == "pve")
+
+- name: Update VM configs
+  community.general.proxmox_kvm:
+   node: "{{item.node}}"  # Узел кластера (можно указать all)
+   api_host: "{{ proxmox_host }}"
+   api_user: "{{ proxmox_user }}"
+   api_token_id: "{{ proxmox_token }}"
+   api_token_secret: "{{ proxmox_token_secret }}"
+   validate_certs: false
+   name: "{{ item.name }}"
+   memory: "{{ item.memory }}"
+   searchdomains: 'home.lan'
+   nameservers: "{{dns}}"
+   cores: "{{item.cores}}"
+#   target: "{{item.node}}"
+   net:
+     net0: 'virtio,bridge=vmbr1'
+   ipconfig:
+     ipconfig0: 'ip={{item.ip_address}},gw={{gateway}}'
+   timeout: 400
+   update: true
+   update_unsafe: true
+  loop: "{{ vms_to_create }}"
+  when: (ansible_hostname == "pve")
+ 
+- name: Start VM
+  community.general.proxmox_kvm:
+   node: "{{item.node}}"
+   api_host: "{{ proxmox_host }}"
+   api_user: "{{ proxmox_user }}"
+   api_token_id: "{{ proxmox_token }}"
+   api_token_secret: "{{ proxmox_token_secret }}"
+   name: "{{item.name}}"
+   state: started
+  loop: "{{ vms_to_create }}"
+  async: 120
+  poll: 0
+  register: vm_start_async_result
+  when: (ansible_hostname == "pve")
+
+- name: Wait for all VMs to start
+  ansible.builtin.async_status:
+   jid: "{{ item.ansible_job_id }}"
+  loop: "{{ vm_start_async_result.results }}"
+  loop_control:
+   label: "{{ item.item.name }}"
+  register: vm_start_result
+  until: vm_start_result.finished
+  retries: 60
+  delay: 2
+  when: item.ansible_job_id is defined
+
+- name: Wait for VMs to boot completely
+  ansible.builtin.wait_for:
+    timeout: 300
+...

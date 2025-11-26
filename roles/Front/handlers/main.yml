@@ -1,0 +1,7 @@
+- name: Restart Nginx
+  systemd:
+   name: nginx
+   state: restarted
+
+- name: Apply iptables rules
+  command: iptables-restore /etc/iptables/rules.v4   

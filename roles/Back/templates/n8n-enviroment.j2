@@ -1,0 +1,50 @@
+# Основные настройки
+N8N_PORT={{ n8n_port }}
+N8N_HOST={{ n8n_host }}
+N8N_PROTOCOL={{ n8n_protocol }}
+N8N_ENCRYPTION_KEY={{n8n_key}}
+N8N_DIAGNOSTICS_ENABLED=false
+N8N_PERSONALIZATION_ENABLED=false
+
+# Безопасность
+N8N_BASIC_AUTH_ACTIVE={{ n8n_basic_auth_active | lower }}
+N8N_BASIC_AUTH_USER={{ n8n_basic_auth_user }}
+N8N_BASIC_AUTH_PASSWORD={{ n8n_basic_auth_password }}
+N8N_SECURE_COOKIE = false
+
+# Ключ шифрования (обязательно!)
+#N8N_ENCRYPTION_KEY={{ n8n_encryption_key }}
+
+# Настройки PostgreSQL
+DB_TYPE={{ n8n_db_type }}
+DB_POSTGRESDB_HOST={{ n8n_db_postgresdb_host }}
+DB_POSTGRESDB_PORT={{ n8n_db_postgresdb_port }}
+DB_POSTGRESDB_DATABASE={{ n8n_db_postgresdb_database }}
+DB_POSTGRESDB_USER={{ n8n_db_postgresdb_user }}
+DB_POSTGRESDB_PASSWORD={{ db_password }}
+DB_POSTGRESDB_SCHEMA={{ n8n_db_postgresdb_schema }}
+
+# Параметры подключения к PostgreSQL
+DB_POSTGRESDB_CONNECTION_TIMEOUT=30000
+DB_POSTGRESDB_SSL=false
+# Если нужен SSL, раскомментируйте:
+# DB_POSTGRESDB_SSL=true
+# DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED=false
+
+# Управление данными выполненных workflow
+EXECUTIONS_DATA_PRUNE={{ n8n_executions_data_prune | lower }}
+EXECUTIONS_DATA_MAX_AGE={{ n8n_executions_data_max_age }}
+
+# Логирование
+N8N_LOG_LEVEL=debug
+N8N_LOG_OUTPUT=file
+N8N_LOG_FILE_LOCATION=/home/n8n/.npm-global/n8n.log
+
+# Настройки для production
+N8N_ENDPOINT_WEBHOOK_TEST_DISABLE=true
+N8N_ENDPOINT_WEBHOOK_WAIT_DISABLE=true
+
+# Оптимизация для PostgreSQL
+EXECUTIONS_MODE=regular
+# Для больших нагрузок можно использовать queue mode:
+# EXECUTIONS_MODE=queue

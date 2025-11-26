@@ -1,0 +1,166 @@
+- name: install postgresql-server 14
+  apt: 
+      name: 
+          - postgresql 
+          - postgresql-contrib
+          - prometheus-node-exporter
+          - python3-pexpect
+          - python3-psycopg2
+          - barman-cli
+      state: present
+      update_cache: true
+  
+  # Запускаем postgresql-16
+- name: enable and start service
+  service:
+    name: postgresql
+    state: started
+    enabled: true
+
+#CREATE USER replicator WITH password 
+- name: Create replicator user
+  become_user: postgres
+  postgresql_user:
+     name: replication
+     password: '{{ replicator_password }}'
+     role_attr_flags: REPLICATION 
+  ignore_errors: true
+  when: (ansible_hostname == "Main")
+
+  #Останавливаем postgresql-16 на хосте Repl
+- name: stop postgresql-server on Repl
+  service: 
+     name: postgresql
+     state: stopped
+  when: (ansible_hostname == "Repl")
+
+  #Копируем конфигурационный файл postgresql.conf
+- name: copy postgresql.conf
+  template:
+     src: postgresql.conf.j2
+     dest: /etc/postgresql/16/main/postgresql.conf
+     owner: postgres
+     group: postgres
+     mode: '0600'
+  when: (ansible_hostname == "Main")
+  
+  #Копируем конфигурационный файл pg_hba.conf
+- name: copy pg_hba.conf
+  template:
+     src: pg_hba.conf.j2
+     dest: /etc/postgresql/16/main/pg_hba.conf
+     owner: postgres
+     group: postgres
+     mode: '0600'
+  when: (ansible_hostname == "Main")
+ 
+   #Перезапускаем службу  postgresql-16
+- name: restart postgresql-server on Main
+  service: 
+     name: postgresql
+     state: restarted
+  when: (ansible_hostname == "Main")
+
+  #Удаляем содержимое каталога /var/lib/postgresql/16/main/
+- name: Remove files from data catalog
+  file:
+     path: /var/lib/postgresql/16/main/
+     state: absent
+  when: (ansible_hostname == "Repl")
+
+  #Копируем данные с Main на Repl
+- name: copy files from master to slave
+  become_user: postgres
+  expect:
+     command: 'pg_basebackup -h {{ main_ip }} -U  replication -p 5432 -D /var/lib/postgresql/16/main/ -R -P'
+     responses: 
+       '.*Password*': "{{ replicator_password }}"
+  when: (ansible_hostname == "Repl")
+
+  #Копируем конфигурационный файл postgresql.conf
+- name: copy postgresql.conf
+  template:
+     src: postgresql.conf_repl.j2
+     dest:  /etc/postgresql/16/main/postgresql.conf
+     owner: postgres
+     group: postgres
+     mode: '0600'
+  when: (ansible_hostname == "Repl")
+
+  #Копируем конфигурационный файл pg_hba.conf
+- name: copy pg_hba.conf
+  template:
+     src: pg_hba.conf.j2
+     dest:  /etc/postgresql/16/main/pg_hba.conf
+     owner: postgres
+     group: postgres
+     mode: '0600'
+  when: (ansible_hostname == "Repl")
+   
+  #Запускаем службу postgresql-16 на хосте Repl
+- name: start postgresql-server on Repl
+  service: 
+     name: postgresql
+     state: started
+  when: (ansible_hostname == "Repl")
+
+- name: Create the barman user in PostgreSQL
+  community.postgresql.postgresql_user:
+      name: barman
+      password: "{{ barman_user_password }}"
+      role_attr_flags: CREATEDB,CREATEROLE,SUPERUSER
+      state: present
+  become: yes
+  become_user: postgres
+  when: (ansible_hostname == "Main")
+
+
+ #  Генерируем SSH-ключ для пользователя postgres на хосте Main
+- name: generate SSH key for postgres
+  user:
+    name: postgres
+    generate_ssh_key: yes
+    ssh_key_type: rsa
+    ssh_key_bits: 4096
+    force: no
+  when: (ansible_hostname == "Main") or
+         (ansible_hostname == "Repl")
+
+  #  Забираем содержимое открытого ключа postgres c хоста Main
+- name: fetch all public ssh keys Main
+  shell: cat /var/lib/postgresql/.ssh/id_rsa.pub
+  register: ssh_keys
+  when: (ansible_hostname == "Main")or
+         (ansible_hostname == "Repl")
+
+- name: Создать пользователя n8n
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    conn_limit: 10
+    state: present
+  become: yes
+  become_user: postgres  
+  when: (ansible_hostname == "Main") 
+
+- name: Создать базу данных n8n
+  community.postgresql.postgresql_db:
+     name: "{{ db_name }}"
+     owner: "{{ db_user }}"
+     encoding: UTF8
+     template: template0
+     state: present
+  become: yes
+  become_user: postgres   
+  when: (ansible_hostname == "Main")
+
+- name: Предоставление привилегий пользователю на базу данных
+  community.postgresql.postgresql_privs:
+    database: "{{ db_name }}"
+    roles: "{{ db_user }}"
+    type: database
+    privs: CONNECT,CREATE,TEMPORARY
+    state: present
+  become: yes
+  become_user: postgres   
+  when: (ansible_hostname == "Main")   

@@ -1,0 +1,26 @@
+ssh_port: 22
+
+# Настройки n8n
+n8n_port: 5678
+n8n_host: "0.0.0.0"
+n8n_protocol: "https"
+n8n_user: n8n
+n8n_group: n8n
+    
+# Безопасность
+n8n_basic_auth_active: true
+n8n_basic_auth_user: "admin"
+n8n_basic_auth_password: "{{ lookup('password', '/tmp/n8n-password length=20 chars=ascii_letters,digits') }}"
+    
+# Настройки PostgreSQL
+n8n_db_type: "postgresdb"
+n8n_db_postgresdb_host: "192.168.1.210"
+n8n_db_postgresdb_port: 5432
+n8n_db_postgresdb_database: "n8n"
+n8n_db_postgresdb_user: "n8n"
+n8n_db_postgresdb_schema: "public"
+    
+# Дополнительные настройки
+n8n_encryption_key: "{{ lookup('password', '/tmp/n8n-encryption length=32 chars=ascii_letters,digits') }}"
+n8n_executions_data_prune: true
+n8n_executions_data_max_age: 336

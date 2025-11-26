@@ -1,0 +1,57 @@
+- name: install nginx
+  apt:
+    name:
+      - nginx
+      - prometheus-node-exporter
+      - prometheus-nginx-exporter
+    state: present
+
+- name: Copy certs
+  ansible.builtin.copy:
+   src: "{{item}}"
+   dest: /etc/ssl/
+   owner: www-data
+   group: www-data
+   mode: '0644'
+  loop: 
+   - ssl.crt
+   - ssl.key
+
+- name: Create nginx config for n8n
+  template:
+    src: n8n-nginx.conf.j2
+    dest: /etc/nginx/sites-available/n8n.conf
+    mode: 0644
+
+- name: Enable n8n site in nginx
+  file:
+    src: /etc/nginx/sites-available/n8n.conf
+    dest: /etc/nginx/sites-enabled/n8n.conf
+    state: link
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Restart nginx
+  service:
+    name: nginx
+    state: restarted    
+- name: start and enable service
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Install iptables-persistent
+  apt:
+   name: iptables-persistent
+   state: present
+
+- name: Configure iptables rules from template
+  template:
+    src: iptables-rules.j2
+    dest: /etc/iptables/rules.v4
+    mode: 0644
+  notify: Apply iptables rules

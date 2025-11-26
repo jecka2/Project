@@ -1,0 +1,132 @@
+- name: Update apt package cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install prometheus
+  ansible.builtin.apt:
+   name: "{{item}}"
+   state: present
+  loop:
+   - prometheus-alertmanager
+   - prometheus
+
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: prometheus.yml.j2
+   dest: /etc/prometheus/prometheus.yml
+   owner: prometheus
+   group: prometheus
+   mode: '0600'
+  notify: restart prometheus
+
+- name: Copy deb files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /tmp/
+  loop:
+   - elasticsearch.deb
+   - logstash.deb
+   - kibana.deb
+   - filebeat.deb
+   - grafana.deb  
+
+- name: Install grafana-servers
+  apt:
+     deb: "{{item}}"
+  loop:
+   - /tmp/grafana.deb
+   - /tmp/elasticsearch.deb
+   - /tmp/logstash.deb
+   - /tmp/kibana.deb
+   - /tmp/filebeat.deb
+
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: grafana.ini.j2
+   dest: /etc/grafana/grafana.ini
+   owner: grafana
+   group: grafana
+   mode: '0600'
+
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: prometheus_grafana.yml.j2
+   dest: /etc/grafana/provisioning/datasources/prometheus.yml
+   owner: grafana
+   group: grafana
+   mode: '0600'
+
+- name: "ensure grafana service started"
+  ansible.builtin.service:
+    name: grafana-server
+    state: restarted
+    enabled: true
+ 
+- name: Create alert rules directory
+  file:
+   path: /etc/prometheus/alerts
+   state: directory
+   owner: prometheus
+   group: prometheus
+   mode: '0755'
+
+- name: Copy alert rules
+  copy:
+   src: "files/alert-rules.yml"
+   dest: /etc/prometheus/alerts/
+   owner: prometheus
+   group: prometheus
+   mode: '0644'
+  notify: restart prometheus
+
+- name: Copy prometheus configs
+  ansible.builtin.template:
+   src: alertmanager.yml.j2
+   dest: /etc/prometheus/alertmanager.yml
+   owner: prometheus
+   group: prometheus
+   mode: '0644'
+  notify: restart alertmanager
+
+- name: Display access information
+  debug:
+    msg:
+     - "Grafana: http://{{ ansible_host }}:3000 (admin/{{ grafana_password }})"
+     - "Prometheus: http://{{ ansible_host }}:9090"
+     - "Alertmanager: http://{{ ansible_host }}:9093"
+
+
+- name: Настройка Elasticsearch
+  template:
+     src: elasticsearch.yml.j2
+     dest: /etc/elasticsearch/elasticsearch.yml
+     owner: root
+     group: root
+     mode: '0644'
+
+- name: Настройка Kibana
+  template:
+    src: kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Настройка Logstash
+  template:
+    src: logstash.conf.j2
+    dest: /etc/logstash/conf.d/logstash.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable service of ELK
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+    state: 'started'
+  loop:
+     - kibana
+     - logstash
+     - filebeat
+     - elasticsearch 

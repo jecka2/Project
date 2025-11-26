@@ -1,0 +1,6 @@
+/.ansible
+/.vscode
+/roles/Mon_Log/files
+/roles/Support/files
+/roles/Back/files
+/roles/Front/files

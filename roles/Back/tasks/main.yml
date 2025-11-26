@@ -1,0 +1,131 @@
+---
+- name: Update package list
+  apt:
+   update_cache: yes
+
+- name: Install prerequisites
+  apt:
+    pkg:
+     - curl
+     - gnupg
+     - iptables-persistent
+     - postgresql-client
+     - python3-psycopg2
+     - prometheus-node-exporter
+    state: present
+
+- name: Add NodeSource PPA with timeout
+  shell:
+    cmd: |
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    creates: /etc/apt/sources.list.d/nodesource.list |
+
+- name: Install Node.js and npm
+  apt:
+    pkg:
+     - nodejs
+    state: present
+
+- name: Create a specific user and group for running N8N
+  user:
+   name: "{{ n8n_user }}"
+   home: /home/n8n
+   create_home: yes
+   shell: /bin/sh
+   state: present
+
+- name: Set ownership of N8N's home directory
+  file:
+    path: /home/n8n
+    owner: "{{ n8n_user }}"
+    recurse: yes
+
+- name: Configure npm for n8n user (no sudo required)
+  become_user: "{{ n8n_user }}"
+  shell:
+    cmd: npm config set prefix ~/.npm-global
+  args:
+    creates: /home/"{{ n8n_user }}"/.npmrc
+
+- name: Add npm bin to PATH for n8n user
+  become_user: "{{ n8n_user }}"
+  lineinfile:
+   path: /home/n8n/.bashrc
+   line: 'export PATH=~/.npm-global/bin:$PATH'
+   create: yes
+
+- name: Test PostgreSQL connection
+  community.postgresql.postgresql_ping:
+   db: "{{ db_name }}"
+   login_host: "{{ n8n_db_postgresdb_host }}"
+   login_port: "{{ n8n_db_postgresdb_port }}"
+   login_user: "{{ n8n_db_postgresdb_user }}"
+   login_password: "{{ db_password }}"
+  register: pg_connection
+  ignore_errors: yes
+
+- name: Fail if PostgreSQL connection test failed
+  fail:
+   msg: "Cannot connect to PostgreSQL database. Please check credentials and network connectivity."
+  when: pg_connection is failed
+
+
+- name: Install n8n as n8n user
+  become_user: "{{ n8n_user }}"
+  npm:
+    name: n8n
+    global: yes
+    production: yes
+
+- name: Create n8n environment configuration for PostgreSQL
+  template:
+   src: n8n-enviroment.j2
+   dest: /home/n8n/.npm-global/environment
+   owner: "{{ n8n_user }}"
+   group: "{{ n8n_user }}"
+   mode: 0600
+  notify: Restart n8n service
+
+- name: Create n8n systemd service
+  template:
+   src: n8n.service.j2
+   dest: /etc/systemd/system/n8n.service
+   mode: 0644
+  notify:
+    - Reload systemd
+    - Start n8n service  
+
+- name: Enable and start the N8N service
+  systemd:
+    name: n8n
+    enabled: yes
+    state: started
+
+- name: Wait for n8n to start and initialize database
+  wait_for:
+    port: "{{ n8n_port }}"
+    host: "127.0.0.1"
+    delay: 10
+    timeout: 60
+  when: pg_connection is succeeded
+
+- name: Display n8n access information
+  debug:
+    msg: |
+       n8n успешно установлен и настроен с PostgreSQL!
+       URL: http://{{ ansible_default_ipv4.address }}:{{ n8n_port }}
+       Пользователь: {{ n8n_basic_auth_user }}
+       Пароль: {{ n8n_basic_auth_password }}
+       База данных: {{ n8n_db_postgresdb_host }}:{{ n8n_db_postgresdb_port }}/{{ n8n_db_postgresdb_database }}    
+
+- name: Install iptables-persistent
+  apt:
+   name: iptables-persistent
+   state: present
+
+- name: Configure iptables rules from template
+  template:
+    src: iptables-rules.j2
+    dest: /etc/iptables/rules.v4
+    mode: 0644
+  notify: Apply iptables rules
