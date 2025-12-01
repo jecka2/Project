@@ -1,0 +1,137 @@
+- name: install prerequisites
+  apt:
+   name: 
+    - postgresql 
+    - postgresql-contrib
+    - prometheus-node-exporter
+    - python3-pexpect
+    - python3-psycopg2
+   state: present
+   update_cache: true
+  when: (ansible_hostname == "Main")or
+        (ansible_hostname == "Repl")
+  
+# Запускаем postgresql-16
+- name: enable and start service
+  service:
+   name: postgresql
+   state: started
+   enabled: true
+  when: (ansible_hostname == "Main")  
+
+#CREATE USER replicator WITH password 
+- name: Create replicator user
+  become_user: postgres
+  postgresql_user:
+     name: replication
+     password: '{{ replicator_password }}'
+     role_attr_flags: REPLICATION 
+  ignore_errors: true
+  when: (ansible_hostname == "Main")
+
+
+- name: Create the barman user in PostgreSQL
+  community.postgresql.postgresql_user:
+   name: barman
+   password: "{{ barman_user_password }}"
+   role_attr_flags: CREATEDB,CREATEROLE,SUPERUSER
+   state: present
+  become: yes
+  become_user: postgres
+  when: (ansible_hostname == "Main")
+
+  #Останавливаем postgresql-16 на хосте Repl
+- name: stop postgresql-server on Repl
+  service: 
+   name: postgresql
+   state: stopped
+  when: (ansible_hostname == "Repl")
+
+  #Копируем конфигурационный файл postgresql.conf
+- name: copy postgresql.conf
+  template:
+   src: postgresql.conf.j2
+   dest: /etc/postgresql/16/main/postgresql.conf
+   owner: postgres
+   group: postgres
+   mode: '0600'
+  when: (ansible_hostname == "Main")
+  
+  #Копируем конфигурационный файл pg_hba.conf
+- name: copy pg_hba.conf
+  template:
+    src: pg_hba.conf.j2
+    dest: /etc/postgresql/16/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: (ansible_hostname == "Main")
+
+ #  Генерируем SSH-ключ для пользователя postgres на хосте Main
+- name: generate SSH key for postgres
+  user:
+   name: postgres
+   generate_ssh_key: yes
+   ssh_key_type: rsa
+   ssh_key_bits: 4096
+   force: no
+  when: (ansible_hostname == "Main")or
+        (ansible_hostname == "Repl")
+
+ #  Забираем содержимое открытого ключа postgres c хоста Main
+- name: fetch all public ssh keys Main
+  shell: cat /var/lib/postgresql/.ssh/id_rsa.pub
+  register: ssh_keys
+  when: (ansible_hostname == "Main")or
+        (ansible_hostname == "Repl")
+
+
+  #  Генерируем SSH-ключ для пользователя barman на хосте Backup
+- name: generate SSH key for barman
+  user:
+    name: barman
+    uid: 994
+    shell: /bin/bash
+    generate_ssh_key: yes
+    ssh_key_type: rsa
+    ssh_key_bits: 4096
+    force: no
+  when: (ansible_hostname == "Backup")
+
+  #  Забираем содержимое открытого ключа barman c хоста Backup 
+- name: fetch all public ssh keys Backup
+  shell: cat /var/lib/barman/.ssh/id_rsa.pub
+  register: ssh_keys
+  when: (ansible_hostname == "Backup")
+
+ #  Копируем ключ с Main на Backup
+- name: Transfer public key to Backup with a comment
+  delegate_to: Main
+  authorized_key:
+     key: "{{ ssh_keys.stdout }}"
+     user: postgres
+     exclusive: yes # Добавляет новый ключ поверх существующих ключей
+     state: present
+     manage_dir: yes # Создает каталог ~/.ssh, если его нет
+  when: ansible_hostname == 'Backup'
+
+- name: Transfer public key to Backup with a comment
+  delegate_to: Repl
+  authorized_key:
+     key: "{{ ssh_keys.stdout }}"
+     user: postgres
+     exclusive: yes # Добавляет новый ключ поверх существующих ключей
+     state: present
+     manage_dir: yes # Создает каталог ~/.ssh, если его нет
+  when: ansible_hostname == 'Backup'
+
+
+- name: enable and start service
+  service:
+   name: postgresql
+   state: started
+   enabled: true
+  when: (ansible_hostname == "Main")  
+
+
+   

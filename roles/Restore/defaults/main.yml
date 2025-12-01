@@ -1,0 +1,6 @@
+main_ip: '192.168.1.210'
+repl_ip: '192.168.1.211'
+barman_ip: '192.168.1.240'
+barman_backup_server: 'Main'
+postgres_data_dir: "/var/lib/postgresql/16/main/"
+master_user: "postgres"

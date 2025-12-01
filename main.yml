@@ -16,7 +16,7 @@
 
 
 #- name: Настройка БД
-#  hosts: Main
+#  hosts: Database
 #  vars_files:
 #    - group_vars/secrets.yml
 #  become: yes
@@ -24,14 +24,14 @@
 #   - Database
 #   - Support
 
-- name: Настройка backup БД
-  hosts: Backup
-  vars_files:
-    - group_vars/secrets.yml
-  become: yes
-  roles:
-   - Backup
-   - Support
+#- name: Настройка backup БД
+#  hosts: Backup
+#  vars_files:
+#    - group_vars/secrets.yml
+#  become: yes
+#  roles:
+#   - Backup
+#   - Support
 
 #- name: Настройка Back
 #  hosts: Back1,Back2
@@ -49,3 +49,12 @@
 #  become: yes
 #  roles:
 #   - Mon_Log  
+
+- name: Восстановление Main
+  hosts: Database,Backup
+  vars_files:
+    - group_vars/secrets.yml
+  become: yes
+  roles:
+   - Restore
+   

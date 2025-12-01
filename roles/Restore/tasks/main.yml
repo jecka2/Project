@@ -1,84 +1,14 @@
-- name: Restore failed primary from backup
-  hosts: Main
-  become: yes
-  vars:
-    current_primary: "{{ groups['standby_db'][0] }}"
-    
-  pre_tasks:
-    - name: Ensure we are recovering to a standby role
-      set_fact:
-        postgres_role: standby
+- name: Include common tasks for all servers
+  include_tasks: prepair.yml
+  when: common_tasks|default(true)
 
-  tasks:
-    - name: Include barman recovery tasks
-      include_role:
-        name: barman-recovery
-      delegate_to: "{{ groups['Backup'][0] }}"
-      run_once: true
+#- name: Include backup tasks
+#  include_tasks: other_playbook.yml
+#  when: 
+#    - ansible_hostname == "Backup"
+   
 
-    - name: Stop PostgreSQL service
-      service:
-        name: postgresql
-        state: stopped
-      ignore_errors: yes
-
-    - name: Backup existing data directory (if exists)
-      command: >
-        mv {{ postgres_data_dir }} {{ postgres_data_dir }}.backup.{{ ansible_date_time.epoch }}
-      when: force_recovery | bool
-      ignore_errors: yes
-
-    - name: Remove existing data directory
-      file:
-        path: "{{ postgres_data_dir }}"
-        state: absent
-
-    - name: Recover from Barman backup
-      command: >
-        barman recover
-        --target-action promote
-        --remote-ssh-command "ssh {{ ansible_user }}@{{ inventory_hostname }}"
-        {{ barman_backup_server }}
-        {{ latest_backup_id }}
-        {{ postgres_data_dir }}
-      become_user: "{{ barman_user }}"
-      delegate_to: "{{ groups['Backup'][0] }}"
-
-    - name: Configure as standby of new primary
-      template:
-        src: postgresql-standby.conf.j2
-        dest: "{{ postgres_config_dir }}/postgresql.conf"
-      notify: restart postgresql
-
-    - name: Start PostgreSQL
-      service:
-        name: postgresql
-        state: started
-
-    - name: Wait for replication to start
-      wait_for:
-        port: "{{ postgres_port }}"
-        delay: 10
-        timeout: 120
-
-    - name: Verify replication status
-      postgresql_query:
-        query: |
-          SELECT 
-            pg_is_in_recovery() as is_standby,
-            client_addr,
-            state,
-            sync_state
-          FROM pg_stat_replication
-      register: replication_check
-      become_user: postgres
-      until: replication_check['query_results'] | length > 0
-      retries: 10
-      delay: 5
-
-    - name: Display recovery completion
-      debug:
-        msg: |
-          Primary server restored successfully!
-          Now running as standby of {{ current_primary }}
-          Replication status: {{ replication_check['query_results'] }}
+- name: Include worker tasks
+  include_tasks: restore_repl.yml
+  when:
+   - ansible_hostname == "Repl"

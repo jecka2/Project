@@ -16,7 +16,6 @@
     state: started
     enabled: true
 
-
 #CREATE USER replicator WITH password 
 - name: Create replicator user
   become_user: postgres
