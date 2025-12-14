@@ -2,13 +2,25 @@
   include_tasks: prepair.yml
   when: common_tasks|default(true)
 
-#- name: Include backup tasks
-#  include_tasks: other_playbook.yml
-#  when: 
-#    - ansible_hostname == "Backup"
-   
+- name: Include backup tasks
+  include_tasks: database_recovery.yml 
+  when: 
+   - ansible_hostname == "Backup"
+
+- name: Start PostgreSQL
+  service:
+    name: postgresql
+    state: restarted
+  when: (ansible_hostname == "Main")     
 
 - name: Include worker tasks
   include_tasks: restore_repl.yml
   when:
    - ansible_hostname == "Repl"
+
+
+
+
+
+
+

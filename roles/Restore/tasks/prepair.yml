@@ -8,7 +8,7 @@
     - python3-psycopg2
    state: present
    update_cache: true
-  when: (ansible_hostname == "Main")or
+  when: (ansible_hostname == "Main") or
         (ansible_hostname == "Repl")
   
 # Запускаем postgresql-16
@@ -66,6 +66,19 @@
     group: postgres
     mode: '0600'
   when: (ansible_hostname == "Main")
+
+- name: enable and start service
+  service:
+   name: postgresql
+   state: restarted
+   enabled: true
+  when: (ansible_hostname == "Main")  
+
+- name: remove known_hosts
+  file:
+   path : /var/lib/barman/.ssh/known_hosts
+   state: absent
+  when: (ansible_hostname == "Backup")
 
  #  Генерируем SSH-ключ для пользователя postgres на хосте Main
 - name: generate SSH key for postgres
@@ -125,13 +138,18 @@
      manage_dir: yes # Создает каталог ~/.ssh, если его нет
   when: ansible_hostname == 'Backup'
 
-
 - name: enable and start service
   service:
    name: postgresql
    state: started
    enabled: true
-  when: (ansible_hostname == "Main")  
+  when: (ansible_hostname == "Main") or
+        (ansible_hostname == "Repl")
+
+- name: Start PostgreSQL
+  service:
+   name: postgresql
+   state: restarted
 
 
    

@@ -56,6 +56,17 @@
    group: grafana
    mode: '0600'
 
+# - name: Copy prometheus configs
+#   ansible.builtin.copy:
+#    src: "{{item}}"
+#    dest: /etc/grafana/provisioning/dashboards/
+#    owner: grafana
+#    group: grafana
+#    mode: '0600'
+#   loop: 
+#    - dashboards.yml
+#    - dashboard.json
+
 - name: "ensure grafana service started"
   ansible.builtin.service:
     name: grafana-server

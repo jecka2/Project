@@ -33,7 +33,7 @@
 
   - name: Recover from Barman backup
     command: >
-            barman recover  {{ barman_backup_id }} {{ postgres_data_dir }}  --remote-ssh-command "ssh {{ master_user }}@{{ main_ip }}"
+            barman recover  {{ barman_backup_id }} {{ postgres_data_dir }}  --remote-ssh-command "ssh -o StrictHostKeyChecking=no {{ master_user }}@{{ main_ip }}"
     become_user: "{{ barman_user }}"
     register: recovery_result
 
@@ -50,6 +50,19 @@
   - name: Display success message
     debug:
      msg: "PostgreSQL restored successfully from backup {{ barman_backup_id }}"  
+
+  - name: enable and start service
+    service:
+     name: postgresql
+     state: started
+     enabled: true
+    when: (ansible_hostname == "Main")  
+
+  - name: Start PostgreSQL
+    service:
+     name: postgresql
+     state: restarted
+    when: (ansible_hostname == "Main")  
 
 
  

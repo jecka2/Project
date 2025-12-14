@@ -7,6 +7,8 @@
     - python3-requests
     - python3-proxmoxer
     state: present
+  when: (ansible_hostname == "pve") or
+        (ansible_hostname == "proxmox")
 
 - name: clone KVM VM 1 from template
   community.general.proxmox_kvm:
@@ -66,7 +68,7 @@
    net:
      net0: 'virtio,bridge=vmbr1'
    ipconfig:
-     ipconfig0: 'ip={{item.ip_address}},gw={{gateway}}'
+     ipconfig0: "ip={{item.ip_address}}/{{ netmask }},gw={{gateway}}"
    timeout: 400
    update: true
    update_unsafe: true
@@ -100,7 +102,15 @@
   delay: 2
   when: item.ansible_job_id is defined
 
+# Ждем, пока машина загрузится и станет доступна по SSH
+#- name: Wait for VM to become reachable via SSH
+#  ansible.builtin.wait_for_connection:
+#   host: "{{ item.ip_address }}"  # IP адрес виртуалки
+#   timeout: 300  # максимальное время ожидания в секундах
+#  loop: "{{ vms_to_create }}"
+#  when: (ansible_hostname == "localhost" )
+
 - name: Wait for VMs to boot completely
   ansible.builtin.wait_for:
-    timeout: 300
+    timeout: 35
 ...
