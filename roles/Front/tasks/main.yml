@@ -5,6 +5,7 @@
       - prometheus-node-exporter
       - prometheus-nginx-exporter
     state: present
+    update_cache: yes
 
 - name: Copy certs
   ansible.builtin.copy:
@@ -44,14 +45,14 @@
     state: started
     enabled: yes
 
-- name: Install iptables-persistent
-  apt:
-   name: iptables-persistent
-   state: present
+# - name: Install iptables-persistent
+#   apt:
+#    name: iptables-persistent
+#    state: present
 
-- name: Configure iptables rules from template
-  template:
-    src: iptables-rules.j2
-    dest: /etc/iptables/rules.v4
-    mode: 0644
-  notify: Apply iptables rules
+# - name: Configure iptables rules from template
+#   template:
+#     src: iptables-rules.j2
+#     dest: /etc/iptables/rules.v4
+#     mode: 0644
+#   notify: Apply iptables rules

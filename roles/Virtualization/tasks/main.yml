@@ -112,5 +112,5 @@
 
 - name: Wait for VMs to boot completely
   ansible.builtin.wait_for:
-    timeout: 35
+    timeout: 100
 ...

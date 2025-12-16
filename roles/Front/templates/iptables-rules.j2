@@ -11,7 +11,7 @@
 -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT -m comment --comment "Http/Https"
 
 # Allow Prometheus
--A INPUT -p tcp -m -s 192.168.1.54/32 multiport --dport 9100,9300,9113 -j ACCEPT -m comment --comment "Prometheus"
+-A INPUT -p tcp -m -s 192.168.1.230/32 multiport --dport 9100,9300,9113 -j ACCEPT -m comment --comment "Prometheus"
 
 # Allow Filebeat
 -A INPUT -p tcp -s 192.168.1.230/32 --dport 5432 -j ACCEPT -m comment --comment "filebeat"
